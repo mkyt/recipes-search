@@ -153,6 +153,22 @@ def download_images():
         download(r['img_url'], '{}.jpg'.format(r['id']))
 
 
+def postprocess():
+    recipes = json.load(open('recipes.json'))
+    for r in recipes:
+        s = r['instructions'][0]
+        v = None
+        for kind in ('メインディッシュ', '前菜', 'デザート'):
+            if kind in s:
+                v = kind
+        if v is None:
+            raise Exception
+        r['kind'] = v
+        del r['img_url']
+    json.dump(recipes, open('recipes_new.json', 'w'), ensure_ascii=False)
+
+
 if __name__ == '__main__':
     #get_recipes()
-    download_images()
+    #download_images()
+    postprocess()
