@@ -2,6 +2,7 @@ import * as React from 'react';
 import { Router, Route, Link, RouteComponentProps, withRouter } from 'react-router-dom';
 import { Container, Row, Col, NavbarBrand, Navbar, NavbarToggler, Collapse, Nav, NavItem, NavLink, Card, CardImg, CardTitle, CardBody, CardColumns, CardText } from 'reactstrap';
 import { FaClockO, FaCutlery, FaDashboard, FaFlagCheckered, FaHourglass2 } from 'react-icons/lib/fa';
+import * as queryString from 'query-string';
 import './App.css';
 import * as recipes from './recipes.json';
 import history from './history';
