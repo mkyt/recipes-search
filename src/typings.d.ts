@@ -27,6 +27,7 @@ interface Recipe {
     cook_duration: number;
     calorie: number;
     genre: string;
+    kind: string;
     difficulty: string;
     prep_duration: number;
     comment: string;
