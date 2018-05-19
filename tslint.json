@@ -4,7 +4,9 @@
     "ordered-imports": false,
     "max-classes-per-file": false,
     "jsx-boolean-value": false,
-    "interface-name": false
+    "interface-name": false,
+    "prefer-const": false,
+    "no-string-literal": false
   },
   "linterOptions": {
     "exclude": [

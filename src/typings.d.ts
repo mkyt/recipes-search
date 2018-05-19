@@ -19,6 +19,7 @@ interface Ingredient {
     name: string;
     detail?: string;
     amount?: string;
+    marking?: string;
 }
     
 interface Recipe {
