@@ -1,13 +1,14 @@
 import * as React from 'react';
 import { Router, Route, Link, RouteComponentProps, withRouter } from 'react-router-dom';
-import { Container, Row, Col, NavbarBrand, Navbar, NavbarToggler, Collapse, Nav, NavItem, NavLink, Card, CardImg, CardTitle, CardBody, CardColumns, CardText, Table, Badge } from 'reactstrap';
+import { Container, Form, FormGroup, Label, FormText, Input, Row, Col, NavbarBrand, Navbar, NavbarToggler, Collapse, Nav, NavItem, NavLink, Card, CardImg, CardTitle, CardBody, CardColumns, CardText, Table, Badge } from 'reactstrap';
 import { FaClockO, FaCutlery, FaDashboard, FaFlagCheckered, FaHourglass2 } from 'react-icons/lib/fa';
 import { GoFlame } from 'react-icons/lib/go';
+import InputRange from 'react-input-range';
 import * as queryString from 'query-string';
+import update from 'immutability-helper';
 import './App.css';
 import * as recipes from './recipes.json';
 import history from './history';
-import { Z_UNKNOWN } from 'zlib';
 
 const recipeWithId = (recipeId: number) => recipes[recipeId - 1429];
 const imageUrlWithId = (recipeId: number) => '/imgs/' + recipeId.toString() + '.jpg';
@@ -32,10 +33,20 @@ function deserializeDurationRange(s: string): DurationRange {
   if (p[1].length > 0) { res.end = Number.parseInt(p[1]); }
   return res;
 }
+
 function matchDuration(n: number, crit: DurationRange) {
   if (crit.start && n < crit.start) { return false; }
   if (crit.end && n > crit.end) { return false; }
   return true;
+}
+
+function describeDuration(dr: DurationRange) {
+  let res = '';
+  if (dr.start) { res += dr.start.toString(); }
+  res += '～';
+  if (dr.end) { res += dr.end.toString(); }
+  res += '分';
+  return res;
 }
 
 interface SearchQuery {
@@ -83,6 +94,19 @@ function serializeSearchQuery(q: SearchQuery): string {
   return queryString.stringify(res);
 }
 
+function describeSearchQuery(q: SearchQuery): string {
+  let p = [];
+  if (q.keyword) { p.push('キーワード："' + q.keyword + '"'); }
+  if (q.genre) { p.push('ジャンル：' + q.genre.join('，')); }
+  if (q.kind) { p.push('種類：' + q.kind.join('，')); }
+  if (q.difficulty) { p.push('難易度：' + q.difficulty.join('，')); }
+  if (q.cookDuration) { p.push('加熱時間：' + describeDuration(q.cookDuration)); }
+  if (q.prepDuration) { p.push('準備時間：' + describeDuration(q.prepDuration)); }
+  if (q.ingredients) { p.push('材料：' + q.ingredients.map((val) => val.join(' or ')).join('，')); }
+  if (q.excludeIngredients) { p.push('使わない材料：' + q.excludeIngredients.join('，')); }
+  return p.join('　');
+}
+
 function shouldContain(q: SearchQuery, r: Recipe): boolean {
   if (q.keyword && !r.title.includes(q.keyword) && !r.comment.includes(q.keyword)) { return false; }
   if (q.difficulty && q.difficulty.indexOf(r.difficulty) === -1) { return false; }
@@ -117,19 +141,21 @@ class AppNavbar extends React.Component<{}, { isOpen: boolean }> {
         <NavbarToggler onClick={this.toggle} />
         <Collapse isOpen={this.state.isOpen} navbar>
           <Nav className="ml-auto" navbar>
-            <NavItem><NavLink href="/?k=デザート">About</NavLink></NavItem>
+            <NavItem><NavLink href="/?k=前菜">前菜</NavLink></NavItem>
+            <NavItem><NavLink href="/?k=メインディッシュ">メインディッシュ</NavLink></NavItem>
+            <NavItem><NavLink href="/?k=デザート">デザート</NavLink></NavItem>
           </Nav>
         </Collapse>
       </Navbar>
     );
   }
+
   private toggle() {
     this.setState({
       isOpen: !this.state.isOpen
     });
   }
 }
-
 
 const IngredientRow = (props: { ing: Ingredient }) => {
   return (<tr><td><Badge color="secondary">{props.ing.marking}</Badge></td><td>{props.ing.name}</td><td>{props.ing.detail}</td><td>{props.ing.amount}</td></tr>);
@@ -196,18 +222,103 @@ const RecipeItem = (props: { r: Recipe }) => (
   </Card>
 );
 
+interface CheckBoxRowProps {
+  title: string;
+  values: string[];
+  checked?: string[];
+}
+
+interface CheckBoxRowState {
+  checked: string[];
+}
+
+class CheckBoxRow extends React.Component<CheckBoxRowProps, CheckBoxRowState> {
+  constructor(props: CheckBoxRowProps) {
+    super(props);
+    this.onClick = this.onClick.bind(this);
+    if (props.checked) {
+      this.state = { checked: [...props.checked] };
+    } else {
+      this.state = { checked: [] };
+    }
+  }
+
+  public render() {
+    return (
+      <Row>
+        <Col xs={4}><Label>{this.props.title}</Label>
+        </Col>
+        <Col>
+          {this.props.values.map((val, i) => {
+            return (
+              <FormGroup inline check key={i}>
+                <Label check><Input type="checkbox" value={val} checked={this.state.checked.indexOf(val) !== -1} onClick={this.onClick} />{val}</Label>
+              </FormGroup>
+            );
+          })}
+        </Col>
+      </Row>
+    );
+  }
+
+  private onClick(e: React.FormEvent<HTMLInputElement>) {
+    const val = e.currentTarget.value;
+    const idx = this.state.checked.indexOf(val);
+    if (idx !== -1) {
+      this.setState(update(this.state, {
+        checked: { $splice: [[idx, 1]] }
+      }));
+    } else {
+      this.setState(update(this.state, {
+        checked: { $push: [val] }
+      }));
+    }
+  }
+}
+
+
+class Sidebar extends React.Component<{ query: SearchQuery }, {}> {
+  private readonly GENRES = { title: 'ジャンル', values: ['エスニック', '和風', '洋風', '中華風', 'フレンチ'] };
+  private readonly DIFFICULTY = { title: '難易度', values: ['簡単', '普通'] };
+  private readonly KIND = { title: '種類', values: ['前菜', 'メインディッシュ', 'デザート'] };
+
+  constructor(props: { query: {} }) {
+    super(props);
+  }
+
+  public render() {
+    return (
+      <Form>
+        <FormGroup row>
+          <Label for="kw" hidden={true}>キーワード</Label>
+          <Input type="text" name="kw" id="kw" placeholder="キーワード" />
+        </FormGroup>
+        <CheckBoxRow {...this.GENRES} checked={this.props.query.genre} />
+        <CheckBoxRow {...this.DIFFICULTY} checked={this.props.query.difficulty} />
+        <CheckBoxRow {...this.KIND} checked={this.props.query.kind} />
+
+      </Form>
+    )
+  }
+}
+
 const SearchResult = withRouter((props: RouteComponentProps<{}>) => {
   const q = deserializeSearchQuery(props.location.search);
   const results = recipes.filter((r) => shouldContain(q, r));
   return (
-    <div>
-      <h2>{JSON.stringify(q)}</h2>
-      <CardColumns>
-        {results.map((recipe) => {
-          return <RecipeItem r={recipe} key={recipe.id} />;
-        })}
-      </CardColumns>
-    </div>
+    <Row>
+      <Col md="3">
+        <Sidebar query={q} />
+      </Col>
+      <Col md="9">
+        <h2>{describeSearchQuery(q)}</h2>
+        <CardColumns>
+          {results.map((recipe) => {
+            return <RecipeItem r={recipe} key={recipe.id} />;
+          })}
+        </CardColumns>
+      </Col>
+    </Row>
   );
 });
 

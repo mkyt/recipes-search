@@ -6,7 +6,8 @@
     "jsx-boolean-value": false,
     "interface-name": false,
     "prefer-const": false,
-    "no-string-literal": false
+    "no-string-literal": false,
+    "no-console": false
   },
   "linterOptions": {
     "exclude": [
