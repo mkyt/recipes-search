@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Router, Route, Link, RouteComponentProps, withRouter } from 'react-router-dom';
-import { Container, Form, FormGroup, Label, FormText, Input, Row, Col, NavbarBrand, Navbar, NavbarToggler, Collapse, Nav, NavItem, NavLink, Card, CardImg, CardTitle, CardBody, CardColumns, CardText, Table, Badge } from 'reactstrap';
+import { Container, Form, FormGroup, Label, FormText, Input, Row, Col, NavbarBrand, Navbar, NavbarToggler, Collapse, Nav, NavItem, NavLink, Card, CardImg, CardTitle, CardBody, CardColumns, CardText, Table, Badge, Button } from 'reactstrap';
 import { FaClockO, FaCutlery, FaDashboard, FaFlagCheckered, FaHourglass2 } from 'react-icons/lib/fa';
 import { GoFlame } from 'react-icons/lib/go';
 import InputRange from 'react-input-range';
@@ -83,13 +83,13 @@ function deserializeSearchQuery(urlQuery: string): SearchQuery {
 
 function serializeSearchQuery(q: SearchQuery): string {
   let res = {};
-  if (q.keyword) { res['kw'] = q.keyword; }
-  if (q.genre) { res['g'] = q.genre.join(','); }
-  if (q.kind) { res['k'] = q.kind.join(','); }
-  if (q.difficulty) { res['d'] = q.difficulty.join(','); }
+  if (q.keyword && q.keyword.length > 0) { res['kw'] = q.keyword; }
+  if (q.genre && q.genre.length > 0) { res['g'] = q.genre.join(','); }
+  if (q.kind && q.kind.length > 0) { res['k'] = q.kind.join(','); }
+  if (q.difficulty && q.difficulty.length > 0) { res['d'] = q.difficulty.join(','); }
   if (q.cookDuration) { res['cd'] = serializeDurationRange(q.cookDuration); }
   if (q.prepDuration) { res['pd'] = serializeDurationRange(q.prepDuration); }
-  if (q.ingredients) { res['i'] = q.ingredients.map((v) => v.join('|')).join(',') }
+  if (q.ingredients && q.ingredients.length > 0) { res['i'] = q.ingredients.map((v) => v.join('|')).join(',') }
   if (q.excludeIngredients) { res['ei'] = q.excludeIngredients.join(','); }
   return queryString.stringify(res);
 }
@@ -223,9 +223,11 @@ const RecipeItem = (props: { r: Recipe }) => (
 );
 
 interface CheckBoxRowProps {
+  key_: string;
   title: string;
   values: string[];
   checked?: string[];
+  cb: (k: string, v: string[]) => void;
 }
 
 interface CheckBoxRowState {
@@ -261,6 +263,12 @@ class CheckBoxRow extends React.Component<CheckBoxRowProps, CheckBoxRowState> {
     );
   }
 
+  public componentDidUpdate(prevProps: CheckBoxRowProps, prevState: CheckBoxRowState) {
+    if (prevState !== this.state) {
+      this.props.cb(this.props.key_, this.state.checked);
+    }
+  }
+
   private onClick(e: React.FormEvent<HTMLInputElement>) {
     const val = e.currentTarget.value;
     const idx = this.state.checked.indexOf(val);
@@ -274,31 +282,54 @@ class CheckBoxRow extends React.Component<CheckBoxRowProps, CheckBoxRowState> {
       }));
     }
   }
+
+
 }
 
 
-class Sidebar extends React.Component<{ query: SearchQuery }, {}> {
-  private readonly GENRES = { title: 'ジャンル', values: ['エスニック', '和風', '洋風', '中華風', 'フレンチ'] };
-  private readonly DIFFICULTY = { title: '難易度', values: ['簡単', '普通'] };
-  private readonly KIND = { title: '種類', values: ['前菜', 'メインディッシュ', 'デザート'] };
+class Sidebar extends React.Component<{ query: SearchQuery }, SearchQuery> {
+  private readonly GENRES = { key_: 'genre', title: 'ジャンル', values: ['エスニック', '和風', '洋風', '中華風', 'フレンチ'] };
+  private readonly DIFFICULTY = { key_: 'difficulty', title: '難易度', values: ['簡単', '普通'] };
+  private readonly KIND = { key_: 'kind', title: '種類', values: ['前菜', 'メインディッシュ', 'デザート'] };
 
   constructor(props: { query: {} }) {
     super(props);
+    this.state = {};
+    this.onSubmit = this.onSubmit.bind(this);
+    this.handleChange = this.handleChange.bind(this);
+    this.cb = this.cb.bind(this);
+  }
+
+  public cb(k: string, v: any) {
+    console.log(k);
+    this.setState(update(this.state, {
+      [k]: { $set: v }
+    }));
   }
 
   public render() {
     return (
       <Form>
         <FormGroup row>
-          <Label for="kw" hidden={true}>キーワード</Label>
-          <Input type="text" name="kw" id="kw" placeholder="キーワード" />
+          <Label for="keyword" hidden={true}>キーワード</Label>
+          <Input type="text" name="keyword" id="keyword" placeholder="キーワード" onChange={this.handleChange} />
         </FormGroup>
-        <CheckBoxRow {...this.GENRES} checked={this.props.query.genre} />
-        <CheckBoxRow {...this.DIFFICULTY} checked={this.props.query.difficulty} />
-        <CheckBoxRow {...this.KIND} checked={this.props.query.kind} />
-
+        <CheckBoxRow {...this.GENRES} checked={this.props.query.genre} cb={this.cb} />
+        <CheckBoxRow {...this.DIFFICULTY} checked={this.props.query.difficulty} cb={this.cb} />
+        <CheckBoxRow {...this.KIND} checked={this.props.query.kind} cb={this.cb}/>
+        <Button onClick={this.onSubmit}>検索</Button>
       </Form>
     )
+  }
+
+  private handleChange(e: React.FormEvent<HTMLInputElement>) {
+    this.cb(e.currentTarget.name, e.currentTarget.value);
+  }
+
+
+  private onSubmit(e: React.FormEvent<HTMLInputElement>) {
+    const q = serializeSearchQuery(this.state);
+    history.push('/?' + q);
   }
 }
 
@@ -306,11 +337,11 @@ const SearchResult = withRouter((props: RouteComponentProps<{}>) => {
   const q = deserializeSearchQuery(props.location.search);
   const results = recipes.filter((r) => shouldContain(q, r));
   return (
-    <Row>
-      <Col md="3">
+    <Row className="page-row">
+      <Col md="3" className="sidebar">
         <Sidebar query={q} />
       </Col>
-      <Col md="9">
+      <Col md="9" className="results">
         <h2>{describeSearchQuery(q)}</h2>
         <CardColumns>
           {results.map((recipe) => {
