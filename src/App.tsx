@@ -9,42 +9,58 @@ import update from 'immutability-helper';
 import './App.css';
 import * as recipes from './recipes.json';
 import history from './history';
+import 'react-input-range/lib/css/index.css';
 
 const recipeWithId = (recipeId: number) => recipes[recipeId - 1429];
 const imageUrlWithId = (recipeId: number) => '/imgs/' + recipeId.toString() + '.jpg';
 
 interface DurationRange {
-  start?: number;
-  end?: number;
+  min?: number;
+  max?: number;
+}
+
+function durationRangeToRange(dr: DurationRange | undefined, mx: number) {
+  let res = { min: 0, max: mx };
+  if (!dr) { return res; }
+  if (dr.max) { res.max = dr.max; }
+  if (dr.min) { res.min = dr.min; }
+  return res;
+}
+
+function rangeToDurationRange(r: DurationRange, mx: number): DurationRange {
+  let res: DurationRange = Object.assign(r);
+  if (res.min === 0) { res.min = undefined; }
+  if (res.max === mx) { res.max = undefined; }
+  return res;
 }
 
 function serializeDurationRange(dr: DurationRange): string {
   let res = ''
-  if (dr.start) { res += dr.start.toString(); }
+  if (dr.min) { res += dr.min.toString(); }
   res += '-';
-  if (dr.end) { res += dr.end.toString(); }
+  if (dr.max) { res += dr.max.toString(); }
   return res;
 }
 
 function deserializeDurationRange(s: string): DurationRange {
   let res: DurationRange = {};
   const p = s.split('-');
-  if (p[0].length > 0) { res.start = Number.parseInt(p[0]); }
-  if (p[1].length > 0) { res.end = Number.parseInt(p[1]); }
+  if (p[0].length > 0) { res.min = Number.parseInt(p[0]); }
+  if (p[1].length > 0) { res.max = Number.parseInt(p[1]); }
   return res;
 }
 
 function matchDuration(n: number, crit: DurationRange) {
-  if (crit.start && n < crit.start) { return false; }
-  if (crit.end && n > crit.end) { return false; }
+  if (crit.min && n < crit.min) { return false; }
+  if (crit.max && n > crit.max) { return false; }
   return true;
 }
 
 function describeDuration(dr: DurationRange) {
   let res = '';
-  if (dr.start) { res += dr.start.toString(); }
+  if (dr.min) { res += dr.min.toString(); }
   res += '～';
-  if (dr.end) { res += dr.end.toString(); }
+  if (dr.max) { res += dr.max.toString(); }
   res += '分';
   return res;
 }
@@ -87,8 +103,8 @@ function serializeSearchQuery(q: SearchQuery): string {
   if (q.genre && q.genre.length > 0) { res['g'] = q.genre.join(','); }
   if (q.kind && q.kind.length > 0) { res['k'] = q.kind.join(','); }
   if (q.difficulty && q.difficulty.length > 0) { res['d'] = q.difficulty.join(','); }
-  if (q.cookDuration) { res['cd'] = serializeDurationRange(q.cookDuration); }
-  if (q.prepDuration) { res['pd'] = serializeDurationRange(q.prepDuration); }
+  if (q.cookDuration && serializeDurationRange(q.cookDuration) !== '-') { res['cd'] = serializeDurationRange(q.cookDuration); }
+  if (q.prepDuration && serializeDurationRange(q.prepDuration) !== '-') { res['pd'] = serializeDurationRange(q.prepDuration); }
   if (q.ingredients && q.ingredients.length > 0) { res['i'] = q.ingredients.map((v) => v.join('|')).join(',') }
   if (q.excludeIngredients) { res['ei'] = q.excludeIngredients.join(','); }
   return queryString.stringify(res);
@@ -282,10 +298,55 @@ class CheckBoxRow extends React.Component<CheckBoxRowProps, CheckBoxRowState> {
       }));
     }
   }
-
-
 }
 
+interface SliderRowProps {
+  key_: string;
+  title: string;
+  unit: string;
+  max: number;
+  range?: DurationRange;
+  cb: (k: string, v: DurationRange) => void;
+}
+
+class SliderRow extends React.Component<SliderRowProps, DurationRange> {
+
+  constructor(props: SliderRowProps) {
+    super(props);
+    this.state = {};
+    this.handleChange = this.handleChange.bind(this);
+    this.format = this.format.bind(this);
+    if (props.range) {
+      this.state = Object.assign({}, props.range);
+    }
+  }
+
+  public render() {
+    return (
+      <Row>
+        <Col xs={4}><Label>{this.props.title}</Label>
+        </Col>
+        <Col>
+          <InputRange formatLabel={this.format} value={durationRangeToRange(this.state, this.props.max)} minValue={0} maxValue={this.props.max} onChange={this.handleChange} />
+        </Col>
+      </Row>
+    )
+  }
+  public componentDidUpdate(prevProps: SliderRowProps, prevState: DurationRange) {
+    if (prevState !== this.state) {
+      this.props.cb(this.props.key_, this.state);
+    }
+  }
+
+  private format(value: number) {
+    return `${value}${this.props.unit}`;
+  }
+
+  private handleChange(value: any) {
+    this.setState(rangeToDurationRange(value, this.props.max));
+  }
+
+}
 
 class Sidebar extends React.Component<{ query: SearchQuery }, SearchQuery> {
   private readonly GENRES = { key_: 'genre', title: 'ジャンル', values: ['エスニック', '和風', '洋風', '中華風', 'フレンチ'] };
@@ -294,9 +355,10 @@ class Sidebar extends React.Component<{ query: SearchQuery }, SearchQuery> {
 
   constructor(props: { query: {} }) {
     super(props);
-    this.state = {};
+    this.state = Object.assign({}, props.query);
     this.onSubmit = this.onSubmit.bind(this);
     this.handleChange = this.handleChange.bind(this);
+    this.handleRange = this.handleRange.bind(this);
     this.cb = this.cb.bind(this);
   }
 
@@ -309,17 +371,24 @@ class Sidebar extends React.Component<{ query: SearchQuery }, SearchQuery> {
 
   public render() {
     return (
-      <Form>
+      <Form onSubmit={this.onSubmit}>
         <FormGroup row>
           <Label for="keyword" hidden={true}>キーワード</Label>
-          <Input type="text" name="keyword" id="keyword" placeholder="キーワード" onChange={this.handleChange} />
+          <Input className="m-2" type="text" name="keyword" id="keyword" placeholder="キーワード" value={this.state.keyword} onChange={this.handleChange} />
         </FormGroup>
         <CheckBoxRow {...this.GENRES} checked={this.props.query.genre} cb={this.cb} />
         <CheckBoxRow {...this.DIFFICULTY} checked={this.props.query.difficulty} cb={this.cb} />
-        <CheckBoxRow {...this.KIND} checked={this.props.query.kind} cb={this.cb}/>
-        <Button onClick={this.onSubmit}>検索</Button>
+        <CheckBoxRow {...this.KIND} checked={this.props.query.kind} cb={this.cb} />
+        <SliderRow key_="prepDuration" title="準備時間" unit="分" max={75} range={this.state.prepDuration} cb={this.cb} />
+        <SliderRow key_="cookDuration" title="加熱時間" unit="分" max={35} range={this.state.cookDuration} cb={this.cb} />
+        <Button type="submit">検索</Button>
       </Form>
     )
+  }
+
+  private handleRange(key: string, mx: number, value: DurationRange) {
+    console.log(key, mx, value, this.state);
+    this.cb(key, rangeToDurationRange(value, mx));
   }
 
   private handleChange(e: React.FormEvent<HTMLInputElement>) {
@@ -327,9 +396,10 @@ class Sidebar extends React.Component<{ query: SearchQuery }, SearchQuery> {
   }
 
 
-  private onSubmit(e: React.FormEvent<HTMLInputElement>) {
+  private onSubmit(e: React.FormEvent<HTMLFormElement>) {
     const q = serializeSearchQuery(this.state);
     history.push('/?' + q);
+    e.preventDefault();
   }
 }
 
