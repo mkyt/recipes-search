@@ -16,3 +16,14 @@ body {
     height: calc(100vh - 56px);
   }
 }
+
+.input-range {
+  margin-top: 15px;
+  margin-bottom: 30px;
+}
+
+form div.row {
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
