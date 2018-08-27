@@ -242,23 +242,14 @@ interface CheckBoxRowProps {
   key_: string;
   title: string;
   values: string[];
-  checked?: string[];
-  cb: (k: string, v: string[]) => void;
+  checked: string[] | undefined;
+  cb: (k: string, v: ReadonlyArray<string>) => void;
 }
 
-interface CheckBoxRowState {
-  checked: string[];
-}
-
-class CheckBoxRow extends React.Component<CheckBoxRowProps, CheckBoxRowState> {
+class CheckBoxRow extends React.Component<CheckBoxRowProps, {}> {
   constructor(props: CheckBoxRowProps) {
     super(props);
     this.onClick = this.onClick.bind(this);
-    if (props.checked) {
-      this.state = { checked: [...props.checked] };
-    } else {
-      this.state = { checked: [] };
-    }
   }
 
   public render() {
@@ -270,7 +261,7 @@ class CheckBoxRow extends React.Component<CheckBoxRowProps, CheckBoxRowState> {
           {this.props.values.map((val, i) => {
             return (
               <FormGroup inline check key={i}>
-                <Label check><Input type="checkbox" value={val} checked={this.state.checked.indexOf(val) !== -1} onClick={this.onClick} />{val}</Label>
+                <Label check><Input type="checkbox" value={val} checked={this.props.checked !== undefined && this.props.checked.indexOf(val) !== -1} onClick={this.onClick} />{val}</Label>
               </FormGroup>
             );
           })}
@@ -279,23 +270,14 @@ class CheckBoxRow extends React.Component<CheckBoxRowProps, CheckBoxRowState> {
     );
   }
 
-  public componentDidUpdate(prevProps: CheckBoxRowProps, prevState: CheckBoxRowState) {
-    if (prevState !== this.state) {
-      this.props.cb(this.props.key_, this.state.checked);
-    }
-  }
-
   private onClick(e: React.FormEvent<HTMLInputElement>) {
     const val = e.currentTarget.value;
-    const idx = this.state.checked.indexOf(val);
+    const checked = this.props.checked !== undefined ? this.props.checked : [];
+    const idx = checked.indexOf(val);
     if (idx !== -1) {
-      this.setState(update(this.state, {
-        checked: { $splice: [[idx, 1]] }
-      }));
+      this.props.cb(this.props.key_, update(checked, { $splice: [[idx, 1]] }));
     } else {
-      this.setState(update(this.state, {
-        checked: { $push: [val] }
-      }));
+      this.props.cb(this.props.key_, update(checked, { $push: [val] }));
     }
   }
 }
@@ -309,16 +291,12 @@ interface SliderRowProps {
   cb: (k: string, v: DurationRange) => void;
 }
 
-class SliderRow extends React.Component<SliderRowProps, DurationRange> {
+class SliderRow extends React.Component<SliderRowProps> {
 
   constructor(props: SliderRowProps) {
     super(props);
-    this.state = {};
     this.handleChange = this.handleChange.bind(this);
     this.format = this.format.bind(this);
-    if (props.range) {
-      this.state = Object.assign({}, props.range);
-    }
   }
 
   public render() {
@@ -327,15 +305,10 @@ class SliderRow extends React.Component<SliderRowProps, DurationRange> {
         <Col xs={4}><Label>{this.props.title}</Label>
         </Col>
         <Col>
-          <InputRange formatLabel={this.format} value={durationRangeToRange(this.state, this.props.max)} minValue={0} maxValue={this.props.max} onChange={this.handleChange} />
+          <InputRange formatLabel={this.format} value={durationRangeToRange(this.props.range, this.props.max)} minValue={0} maxValue={this.props.max} onChange={this.handleChange} />
         </Col>
       </Row>
     )
-  }
-  public componentDidUpdate(prevProps: SliderRowProps, prevState: DurationRange) {
-    if (prevState !== this.state) {
-      this.props.cb(this.props.key_, this.state);
-    }
   }
 
   private format(value: number) {
@@ -343,7 +316,7 @@ class SliderRow extends React.Component<SliderRowProps, DurationRange> {
   }
 
   private handleChange(value: any) {
-    this.setState(rangeToDurationRange(value, this.props.max));
+    this.props.cb(this.props.key_, rangeToDurationRange(value, this.props.max));
   }
 
 }
@@ -363,10 +336,8 @@ class Sidebar extends React.Component<{ query: SearchQuery }, SearchQuery> {
   }
 
   public cb(k: string, v: any) {
-    console.log(k);
-    this.setState(update(this.state, {
-      [k]: { $set: v }
-    }));
+    // console.log(k, v);
+    this.setState({ [k]: v });
   }
 
   public render() {
@@ -376,9 +347,9 @@ class Sidebar extends React.Component<{ query: SearchQuery }, SearchQuery> {
           <Label for="keyword" hidden={true}>キーワード</Label>
           <Input className="m-2" type="text" name="keyword" id="keyword" placeholder="キーワード" value={this.state.keyword} onChange={this.handleChange} />
         </FormGroup>
-        <CheckBoxRow {...this.GENRES} checked={this.props.query.genre} cb={this.cb} />
-        <CheckBoxRow {...this.DIFFICULTY} checked={this.props.query.difficulty} cb={this.cb} />
-        <CheckBoxRow {...this.KIND} checked={this.props.query.kind} cb={this.cb} />
+        <CheckBoxRow {...this.GENRES} checked={this.state.genre} cb={this.cb} />
+        <CheckBoxRow {...this.DIFFICULTY} checked={this.state.difficulty} cb={this.cb} />
+        <CheckBoxRow {...this.KIND} checked={this.state.kind} cb={this.cb} />
         <SliderRow key_="prepDuration" title="準備時間" unit="分" max={75} range={this.state.prepDuration} cb={this.cb} />
         <SliderRow key_="cookDuration" title="加熱時間" unit="分" max={35} range={this.state.cookDuration} cb={this.cb} />
         <Button type="submit">検索</Button>
@@ -394,7 +365,6 @@ class Sidebar extends React.Component<{ query: SearchQuery }, SearchQuery> {
   private handleChange(e: React.FormEvent<HTMLInputElement>) {
     this.cb(e.currentTarget.name, e.currentTarget.value);
   }
-
 
   private onSubmit(e: React.FormEvent<HTMLFormElement>) {
     const q = serializeSearchQuery(this.state);
