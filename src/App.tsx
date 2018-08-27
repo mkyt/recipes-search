@@ -4,10 +4,12 @@ import { Container, Form, FormGroup, Label, FormText, Input, Row, Col, NavbarBra
 import { FaClockO, FaCutlery, FaDashboard, FaFlagCheckered, FaHourglass2 } from 'react-icons/lib/fa';
 import { GoFlame } from 'react-icons/lib/go';
 import InputRange from 'react-input-range';
+import CreatableSelect from 'react-select/lib/Creatable';
 import * as queryString from 'query-string';
 import update from 'immutability-helper';
 import './App.css';
 import * as recipes from './recipes.json';
+import * as ingredients from './ingredients.json';
 import history from './history';
 import 'react-input-range/lib/css/index.css';
 
@@ -72,7 +74,7 @@ interface SearchQuery {
   difficulty?: string[];
   cookDuration?: DurationRange;
   prepDuration?: DurationRange;
-  ingredients?: string[][];
+  ingredients?: string[];
   excludeIngredients?: string[];
 }
 
@@ -85,13 +87,7 @@ function deserializeSearchQuery(urlQuery: string): SearchQuery {
   if ('d' in p) { res.difficulty = p['d'].split(','); }
   if ('cd' in p) { res.cookDuration = deserializeDurationRange(p['cd']); }
   if ('pd' in p) { res.prepDuration = deserializeDurationRange(p['pd']); }
-  if ('i' in p) {
-    let val = [];
-    for (const clause of p['i'].split(',')) {
-      val.push(clause.split('|'));
-    }
-    res.ingredients = val;
-  }
+  if ('i' in p) { res.ingredients = p['i'].split(','); }
   if ('ei' in p) { res.excludeIngredients = p['ei'].split(','); }
   return res;
 }
@@ -105,7 +101,7 @@ function serializeSearchQuery(q: SearchQuery): string {
   if (q.difficulty && q.difficulty.length > 0) { res['d'] = q.difficulty.join(','); }
   if (q.cookDuration && serializeDurationRange(q.cookDuration) !== '-') { res['cd'] = serializeDurationRange(q.cookDuration); }
   if (q.prepDuration && serializeDurationRange(q.prepDuration) !== '-') { res['pd'] = serializeDurationRange(q.prepDuration); }
-  if (q.ingredients && q.ingredients.length > 0) { res['i'] = q.ingredients.map((v) => v.join('|')).join(',') }
+  if (q.ingredients) { res['i'] = q.ingredients.join(','); }
   if (q.excludeIngredients) { res['ei'] = q.excludeIngredients.join(','); }
   return queryString.stringify(res);
 }
@@ -118,7 +114,7 @@ function describeSearchQuery(q: SearchQuery): string {
   if (q.difficulty) { p.push('難易度：' + q.difficulty.join('，')); }
   if (q.cookDuration) { p.push('加熱時間：' + describeDuration(q.cookDuration)); }
   if (q.prepDuration) { p.push('準備時間：' + describeDuration(q.prepDuration)); }
-  if (q.ingredients) { p.push('材料：' + q.ingredients.map((val) => val.join(' or ')).join('，')); }
+  if (q.ingredients) { p.push('材料：' + q.ingredients.join('，')); }
   if (q.excludeIngredients) { p.push('使わない材料：' + q.excludeIngredients.join('，')); }
   return p.join('　');
 }
@@ -133,7 +129,8 @@ function shouldContain(q: SearchQuery, r: Recipe): boolean {
   if (q.ingredients || q.excludeIngredients) {
     const ings = new Set(r.ingredients.map((ing) => ing.name));
     if (q.ingredients) {
-      for (const cands of q.ingredients) {
+      for (const candsStr of q.ingredients) {
+        const cands = candsStr.split('|');
         if (!cands.some((s) => ings.has(s))) { return false; }
       }
     }
@@ -321,37 +318,87 @@ class SliderRow extends React.Component<SliderRowProps> {
 
 }
 
-class Sidebar extends React.Component<{ query: SearchQuery }, SearchQuery> {
+interface SidebarContext {
+  query: SearchQuery;
+  options: any[];
+}
+
+class Sidebar extends React.Component<{ query: SearchQuery }, SidebarContext> {
   private readonly GENRES = { key_: 'genre', title: 'ジャンル', values: ['エスニック', '和風', '洋風', '中華風', 'フレンチ'] };
   private readonly DIFFICULTY = { key_: 'difficulty', title: '難易度', values: ['簡単', '普通'] };
   private readonly KIND = { key_: 'kind', title: '種類', values: ['前菜', 'メインディッシュ', 'デザート'] };
 
   constructor(props: { query: {} }) {
     super(props);
-    this.state = Object.assign({}, props.query);
+    this.state = { query: Object.assign({}, props.query), options: ingredients };
     this.onSubmit = this.onSubmit.bind(this);
     this.handleChange = this.handleChange.bind(this);
     this.handleRange = this.handleRange.bind(this);
+    this.handleSelectChange = this.handleSelectChange.bind(this);
+    this.shouldCreateEnabled = this.shouldCreateEnabled.bind(this);
+    this.createNewOption = this.createNewOption.bind(this);
+    this.filter = this.filter.bind(this);
     this.cb = this.cb.bind(this);
   }
 
   public cb(k: string, v: any) {
     // console.log(k, v);
-    this.setState({ [k]: v });
+    this.setState({ query: update(this.state.query, {$merge: { [k]: v }})});
+  }
+
+  public handleSelectChange(newValue: any, actionMeta: any) {
+    console.log(newValue);
+    console.log(actionMeta.action);
+    if (actionMeta.action === 'select-option' || actionMeta.action === 'remove-value' || actionMeta.action === 'clear' || actionMeta.action === 'create-option') {
+      this.setState( {query: update(this.state.query, {$merge: { ingredients: newValue}})});
+    }
+  }
+
+  public shouldCreateEnabled(inputValue: string, selectValue: any, options: any) {
+    if (!inputValue) { return false; }
+    // FIXME: return false if input value has no regex-match to options
+    return true;
+  }
+
+  public createNewOption(inputValue: string, optionLabel: string) {
+    console.log(inputValue, optionLabel);
+    // FIXME: regex -> '|' delimited list of string
+    return inputValue; // '青ねぎ|青しそ';
+  }
+
+  public filter(option: any, inputValue: string) {
+    console.log(option, inputValue);
+    const re = RegExp(inputValue);
+    return re.test(option.value);
   }
 
   public render() {
+    const {query, options} = this.state;
     return (
       <Form onSubmit={this.onSubmit}>
         <FormGroup row>
           <Label for="keyword" hidden={true}>キーワード</Label>
-          <Input className="m-2" type="text" name="keyword" id="keyword" placeholder="キーワード" value={this.state.keyword} onChange={this.handleChange} />
+          <Input className="m-2" type="text" name="keyword" id="keyword" placeholder="キーワード" value={query.keyword} onChange={this.handleChange} />
         </FormGroup>
-        <CheckBoxRow {...this.GENRES} checked={this.state.genre} cb={this.cb} />
-        <CheckBoxRow {...this.DIFFICULTY} checked={this.state.difficulty} cb={this.cb} />
-        <CheckBoxRow {...this.KIND} checked={this.state.kind} cb={this.cb} />
-        <SliderRow key_="prepDuration" title="準備時間" unit="分" max={75} range={this.state.prepDuration} cb={this.cb} />
-        <SliderRow key_="cookDuration" title="加熱時間" unit="分" max={35} range={this.state.cookDuration} cb={this.cb} />
+        <CheckBoxRow {...this.GENRES} checked={query.genre} cb={this.cb} />
+        <CheckBoxRow {...this.DIFFICULTY} checked={query.difficulty} cb={this.cb} />
+        <CheckBoxRow {...this.KIND} checked={query.kind} cb={this.cb} />
+        <SliderRow key_="prepDuration" title="準備時間" unit="分" max={75} range={query.prepDuration} cb={this.cb} />
+        <SliderRow key_="cookDuration" title="加熱時間" unit="分" max={35} range={query.cookDuration} cb={this.cb} />
+        <CreatableSelect
+          isClearable
+          isSearchable
+          isMulti
+          closeMenuOnSelect={false}
+          onChange={this.handleSelectChange}
+          options={options}
+          getOptionLabel={(x) => x}
+          getOptionValue={(x) => x}
+          value={query.ingredients}
+          isValidNewOption={this.shouldCreateEnabled}
+          getNewOptionData={this.createNewOption}
+          filterOption={this.filter}
+        />
         <Button type="submit">検索</Button>
       </Form>
     )
@@ -367,7 +414,7 @@ class Sidebar extends React.Component<{ query: SearchQuery }, SearchQuery> {
   }
 
   private onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    const q = serializeSearchQuery(this.state);
+    const q = serializeSearchQuery(this.state.query);
     history.push('/?' + q);
     e.preventDefault();
   }

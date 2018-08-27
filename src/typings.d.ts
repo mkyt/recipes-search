@@ -41,3 +41,13 @@ declare module "*/recipes.json" {
     const value: Recipe[];
     export = value;
 }
+
+interface IngredientGroup {
+    genre: string;
+    options: string[];
+}
+
+declare module "*/ingredients.json" {
+    const value: IngredientGroup[];
+    export = value;
+}

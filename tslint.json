@@ -8,7 +8,8 @@
     "prefer-const": false,
     "no-string-literal": false,
     "no-console": false,
-    "radix": false
+    "radix": false,
+    "jsx-no-lambda": false
   },
   "linterOptions": {
     "exclude": [
