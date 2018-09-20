@@ -320,17 +320,20 @@ class SliderRow extends React.Component<SliderRowProps> {
 
 interface SidebarContext {
   query: SearchQuery;
-  options: any[];
+  options: IngredientItem[];
 }
+
+const value2ingredientItem = new Map<string, IngredientItem>();
+ingredients.forEach((group) => group.options.forEach((item) => value2ingredientItem.set(item.value, item)));
 
 class Sidebar extends React.Component<{ query: SearchQuery }, SidebarContext> {
   private readonly GENRES = { key_: 'genre', title: 'ジャンル', values: ['エスニック', '和風', '洋風', '中華風', 'フレンチ'] };
   private readonly DIFFICULTY = { key_: 'difficulty', title: '難易度', values: ['簡単', '普通'] };
   private readonly KIND = { key_: 'kind', title: '種類', values: ['前菜', 'メインディッシュ', 'デザート'] };
 
-  constructor(props: { query: {} }) {
+  constructor(props: { query: SearchQuery } ) {
     super(props);
-    this.state = { query: Object.assign({}, props.query), options: ingredients };
+    this.state = { query: Object.assign({}, props.query), options: this.queryOption2selectOption(props.query.ingredients) };
     this.onSubmit = this.onSubmit.bind(this);
     this.handleChange = this.handleChange.bind(this);
     this.handleRange = this.handleRange.bind(this);
@@ -346,11 +349,11 @@ class Sidebar extends React.Component<{ query: SearchQuery }, SidebarContext> {
     this.setState({ query: update(this.state.query, {$merge: { [k]: v }})});
   }
 
-  public handleSelectChange(newValue: any, actionMeta: any) {
+  public handleSelectChange(newValue: IngredientItem[], actionMeta: any) {
     console.log(newValue);
     console.log(actionMeta.action);
     if (actionMeta.action === 'select-option' || actionMeta.action === 'remove-value' || actionMeta.action === 'clear' || actionMeta.action === 'create-option') {
-      this.setState( {query: update(this.state.query, {$merge: { ingredients: newValue}})});
+      this.setState( { options: newValue } );
     }
   }
 
@@ -363,13 +366,27 @@ class Sidebar extends React.Component<{ query: SearchQuery }, SidebarContext> {
   public createNewOption(inputValue: string, optionLabel: string) {
     console.log(inputValue, optionLabel);
     // FIXME: regex -> '|' delimited list of string
-    return inputValue; // '青ねぎ|青しそ';
+    return { value: inputValue }; // '青ねぎ|青しそ';
   }
 
   public filter(option: any, inputValue: string) {
-    console.log(option, inputValue);
     const re = RegExp(inputValue);
     return re.test(option.value);
+  }
+
+  public queryOption2selectOption(options: string[] | undefined): IngredientItem[] {
+    if (!options) {
+      return [];
+    }
+    function notUndefined<T>(v: T | undefined): v is T { return v !== undefined; }
+    return options.map(v => value2ingredientItem.get(v)).filter(notUndefined);
+  }
+
+  public selectOption2queryOption(options: IngredientItem[]) {
+    if (options.length === 0) {
+      return undefined;
+    }
+    return options.map(v => v.value);
   }
 
   public render() {
@@ -391,10 +408,11 @@ class Sidebar extends React.Component<{ query: SearchQuery }, SidebarContext> {
           isMulti
           closeMenuOnSelect={false}
           onChange={this.handleSelectChange}
-          options={options}
-          getOptionLabel={(x) => x}
-          getOptionValue={(x) => x}
-          value={query.ingredients}
+          options={ingredients}
+          getOptionLabel={ (x: IngredientItem) => x.value }
+          getOptionValue={ (x: IngredientItem) => x.value }
+          formatGroupLabel={ (x: IngredientGroup) => (<p>{x.genre}</p>) }
+          value={options}
           isValidNewOption={this.shouldCreateEnabled}
           getNewOptionData={this.createNewOption}
           filterOption={this.filter}
@@ -414,7 +432,9 @@ class Sidebar extends React.Component<{ query: SearchQuery }, SidebarContext> {
   }
 
   private onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    const q = serializeSearchQuery(this.state.query);
+    let query = this.state.query;
+    query.ingredients = this.selectOption2queryOption(this.state.options);
+    const q = serializeSearchQuery(query);
     history.push('/?' + q);
     e.preventDefault();
   }

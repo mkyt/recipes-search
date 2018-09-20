@@ -42,9 +42,15 @@ declare module "*/recipes.json" {
     export = value;
 }
 
+interface IngredientItem {
+    value: string;
+    kana?: string;
+    alt?: string[];
+}
+
 interface IngredientGroup {
     genre: string;
-    options: string[];
+    options: IngredientItem[];
 }
 
 declare module "*/ingredients.json" {
