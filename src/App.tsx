@@ -1,20 +1,51 @@
 import * as React from 'react';
 import { Router, Route, Link, RouteComponentProps, withRouter } from 'react-router-dom';
 import { Container, Form, FormGroup, Label, FormText, Input, Row, Col, NavbarBrand, Navbar, NavbarToggler, Collapse, Nav, NavItem, NavLink, Card, CardImg, CardTitle, CardBody, CardColumns, CardText, Table, Badge, Button } from 'reactstrap';
-import { FaClockO, FaCutlery, FaDashboard, FaFlagCheckered, FaHourglass2 } from 'react-icons/lib/fa';
-import { GoFlame } from 'react-icons/lib/go';
+import { FaClock, FaUtensils, FaTachometerAlt, FaFlagCheckered, FaHourglass } from 'react-icons/fa';
+import { GoFlame } from 'react-icons/go';
 import InputRange from 'react-input-range';
 import CreatableSelect from 'react-select/lib/Creatable';
 import * as queryString from 'query-string';
 import update from 'immutability-helper';
 import './App.css';
-import * as recipes from './recipes.json';
-import * as ingredients from './ingredients.json';
+import recipes from './recipes.json';
+import ingredients from './ingredients.json';
 import history from './history';
 import 'react-input-range/lib/css/index.css';
 
 const recipeWithId = (recipeId: number) => recipes[recipeId - 1429];
 const imageUrlWithId = (recipeId: number) => '/imgs/' + recipeId.toString() + '.jpg';
+
+
+interface Ingredient {
+  name: string;
+  detail?: string;
+  amount?: string;
+  marking?: string;
+}
+  
+interface Recipe {
+  id: number;
+  title: string;
+  cook_duration: number;
+  calorie: number;
+  genre: string;
+  kind: string;
+  difficulty: string;
+  prep_duration: number;
+  comment: string;
+  ingredients: Ingredient[]
+  yield: number;
+  instructions: string[]
+}
+
+
+interface IngredientItem {
+  value: string;
+  kana?: string;
+  alt?: string[];
+}
+
 
 interface DurationRange {
   min?: number;
@@ -79,7 +110,7 @@ interface SearchQuery {
 }
 
 function deserializeSearchQuery(urlQuery: string): SearchQuery {
-  const p = queryString.parse(urlQuery);
+  const p = queryString.parse(urlQuery) as any;
   let res: SearchQuery = {}
   if ('kw' in p) { res.keyword = p['kw']; }
   if ('g' in p) { res.genre = p['g'].split(','); }
@@ -174,8 +205,8 @@ const IngredientRow = (props: { ing: Ingredient }) => {
   return (<tr><td><Badge color="secondary">{props.ing.marking}</Badge></td><td>{props.ing.name}</td><td>{props.ing.detail}</td><td>{props.ing.amount}</td></tr>);
 }
 
-const RecipeDetail = (props: RouteComponentProps<{ id: number }>) => {
-  const recipeId = props.match.params.id;
+const RecipeDetail = (props: RouteComponentProps<{ id: string }>) => {
+  const recipeId = parseInt(props.match.params.id);
   const recipe = recipeWithId(recipeId);
   return (
     <div>
@@ -185,9 +216,9 @@ const RecipeDetail = (props: RouteComponentProps<{ id: number }>) => {
           <h1 className="display-4">{recipe.title}</h1>
           <p className="lead">{recipe.comment}</p>
           <p>
-            <FaClockO />時間：{recipe.prep_duration + recipe.cook_duration}分（準備{recipe.prep_duration}分、加熱{recipe.cook_duration}分）<br />
-            <FaCutlery />種類：{recipe.kind}<br />
-            <FaDashboard />難易度：{recipe.difficulty}<br />
+            <FaClock />時間：{recipe.prep_duration + recipe.cook_duration}分（準備{recipe.prep_duration}分、加熱{recipe.cook_duration}分）<br />
+            <FaUtensils />種類：{recipe.kind}<br />
+            <FaTachometerAlt />難易度：{recipe.difficulty}<br />
             <FaFlagCheckered />ジャンル：{recipe.genre}<br />
             <GoFlame />カロリー：{recipe.calorie}kcal
           </p>
@@ -224,10 +255,10 @@ const RecipeItem = (props: { r: Recipe }) => (
       <CardTitle><Link to={'/detail/' + props.r.id.toString()}>{props.r.title}</Link></CardTitle>
       <CardText>{props.r.comment}</CardText>
       <CardText>
-        <FaClockO />準備時間：{props.r.prep_duration}分<br />
-        <FaHourglass2 />加熱時間：{props.r.cook_duration}分<br />
-        <FaCutlery />種類：{props.r.kind}<br />
-        <FaDashboard />難易度：{props.r.difficulty}<br />
+        <FaClock />準備時間：{props.r.prep_duration}分<br />
+        <FaHourglass />加熱時間：{props.r.cook_duration}分<br />
+        <FaUtensils />種類：{props.r.kind}<br />
+        <FaTachometerAlt />難易度：{props.r.difficulty}<br />
         <FaFlagCheckered />ジャンル：{props.r.genre}<br />
         <GoFlame />カロリー：{props.r.calorie}kcal
       </CardText>
@@ -349,7 +380,7 @@ class Sidebar extends React.Component<{ query: SearchQuery }, SidebarContext> {
     this.setState({ query: update(this.state.query, {$merge: { [k]: v }})});
   }
 
-  public handleSelectChange(newValue: IngredientItem[], actionMeta: any) {
+  public handleSelectChange(newValue: any, actionMeta: any) {
     console.log(newValue);
     console.log(actionMeta.action);
     if (actionMeta.action === 'select-option' || actionMeta.action === 'remove-value' || actionMeta.action === 'clear' || actionMeta.action === 'create-option') {
@@ -363,7 +394,7 @@ class Sidebar extends React.Component<{ query: SearchQuery }, SidebarContext> {
     return true;
   }
 
-  public createNewOption(inputValue: string, optionLabel: string) {
+  public createNewOption(inputValue: string, optionLabel: React.ReactNode) {
     console.log(inputValue, optionLabel);
     // FIXME: regex -> '|' delimited list of string
     return { value: inputValue }; // '青ねぎ|青しそ';
@@ -402,7 +433,7 @@ class Sidebar extends React.Component<{ query: SearchQuery }, SidebarContext> {
         <CheckBoxRow {...this.KIND} checked={query.kind} cb={this.cb} />
         <SliderRow key_="prepDuration" title="準備時間" unit="分" max={75} range={query.prepDuration} cb={this.cb} />
         <SliderRow key_="cookDuration" title="加熱時間" unit="分" max={35} range={query.cookDuration} cb={this.cb} />
-        <CreatableSelect
+        <CreatableSelect<IngredientItem>
           isClearable
           isSearchable
           isMulti
@@ -411,7 +442,7 @@ class Sidebar extends React.Component<{ query: SearchQuery }, SidebarContext> {
           options={ingredients}
           getOptionLabel={ (x: IngredientItem) => x.value }
           getOptionValue={ (x: IngredientItem) => x.value }
-          formatGroupLabel={ (x: IngredientGroup) => (<p>{x.genre}</p>) }
+          formatGroupLabel={ (x) => (<p>{x['genre']}</p>) }
           value={options}
           isValidNewOption={this.shouldCreateEnabled}
           getNewOptionData={this.createNewOption}

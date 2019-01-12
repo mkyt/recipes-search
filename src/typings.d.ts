@@ -1,3 +1,5 @@
+import { ExecFileSyncOptionsWithBufferEncoding } from "child_process";
+
 /*
 // won't use since inverse mapping for string enum is not available
 
@@ -14,28 +16,6 @@ enum Genre {
    Western = "洋風"
 }
 */
-
-interface Ingredient {
-    name: string;
-    detail?: string;
-    amount?: string;
-    marking?: string;
-}
-    
-interface Recipe {
-    id: number;
-    title: string;
-    cook_duration: number;
-    calorie: number;
-    genre: string;
-    kind: string;
-    difficulty: string;
-    prep_duration: number;
-    comment: string;
-    ingredients: Ingredient[]
-    yield: number;
-    instructions: string[]
-}
 
 declare module "*/recipes.json" {
     const value: Recipe[];
@@ -55,5 +35,19 @@ interface IngredientGroup {
 
 declare module "*/ingredients.json" {
     const value: IngredientGroup[];
+    export = value;
+}
+
+
+declare module "*/romaji_fsm.json" {
+    const value: RomajiFSM;
+    export = value;
+}
+
+interface Eaten2Regexp {
+    [index:string]: string;
+}
+declare module "*/eaten2regex.json" {
+    const value: Eaten2Regexp;
     export = value;
 }
