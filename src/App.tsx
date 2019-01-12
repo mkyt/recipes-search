@@ -212,8 +212,8 @@ const RecipeDetail = (props: RouteComponentProps<{ id: string }>) => {
     <div>
       <Row>
         <Col>
-          <img className="rounded float-right" src={imageUrlWithId(recipe.id)} />
-          <h1 className="display-4">{recipe.title}</h1>
+          <img className="rounded wide-float-right" src={imageUrlWithId(recipe.id)} />
+          <h1 className="h3">{recipe.title}</h1>
           <p className="lead">{recipe.comment}</p>
           <p>
             <FaClock />時間：{recipe.prep_duration + recipe.cook_duration}分（準備{recipe.prep_duration}分、加熱{recipe.cook_duration}分）<br />

@@ -31,6 +31,12 @@
   }
 }
 
+@media (min-width: 768px) {
+  img.wide-float-right {
+    float: right;
+  }
+}
+
 @media (min-width: 72em) {
   .card-columns {
     -webkit-column-count: 4;
