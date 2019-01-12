@@ -14,7 +14,7 @@ import history from './history';
 import 'react-input-range/lib/css/index.css';
 
 const recipeWithId = (recipeId: number) => recipes[recipeId - 1429];
-const imageUrlWithId = (recipeId: number) => '/imgs/' + recipeId.toString() + '.jpg';
+const imageUrlWithId = (recipeId: number) => process.env.PUBLIC_URL + '/imgs/' + recipeId.toString() + '.jpg';
 
 
 interface Ingredient {
