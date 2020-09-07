@@ -6,11 +6,9 @@ body {
   body {
     overflow: hidden;
   }
-  .sidebar {
+  .sidebar, .results {
     overflow-y: auto;
-  }
-  .results {
-    overflow-y: auto;
+    height: 100%;
   }
   .page-row {
     height: calc(100vh - 56px);
