@@ -209,42 +209,44 @@ const RecipeDetail = (props: RouteComponentProps<{ id: string }>) => {
   const recipeId = parseInt(props.match.params.id);
   const recipe = recipeWithId(recipeId);
   return (
-    <div>
-      <Row>
-        <Col>
-          <img className="rounded wide-float-right" src={imageUrlWithId(recipe.id)} />
-          <h1 className="h3">{recipe.title}</h1>
-          <p className="lead">{recipe.comment}</p>
-          <p>
-            <FaClock />時間：{recipe.prep_duration + recipe.cook_duration}分（準備{recipe.prep_duration}分、加熱{recipe.cook_duration}分）<br />
-            <FaUtensils />種類：{recipe.kind}<br />
-            <FaTachometerAlt />難易度：{recipe.difficulty}<br />
-            <FaFlagCheckered />ジャンル：{recipe.genre}<br />
-            <GoFlame />カロリー：{recipe.calorie}kcal
-          </p>
-        </Col>
-      </Row>
-      <Row className="mt-3">
-        <Col md="6" lg="5">
-          <h3 className="mb-3">材料（{recipe.yield}人分）</h3>
-          <Table hover size="sm">
-            <tbody>
-              {recipe.ingredients.map((ing, i) => {
-                return <IngredientRow key={i} ing={ing} />;
+    <Row className="page-row">
+      <Col className="results">
+        <Row>
+          <Col>
+            <img className="rounded wide-float-right" src={imageUrlWithId(recipe.id)} />
+            <h1 className="h3">{recipe.title}</h1>
+            <p className="lead">{recipe.comment}</p>
+            <p>
+              <FaClock />時間：{recipe.prep_duration + recipe.cook_duration}分（準備{recipe.prep_duration}分、加熱{recipe.cook_duration}分）<br />
+              <FaUtensils />種類：{recipe.kind}<br />
+              <FaTachometerAlt />難易度：{recipe.difficulty}<br />
+              <FaFlagCheckered />ジャンル：{recipe.genre}<br />
+              <GoFlame />カロリー：{recipe.calorie}kcal
+            </p>
+          </Col>
+        </Row>
+        <Row className="mt-3">
+          <Col md="6" lg="5">
+            <h3 className="mb-3">材料（{recipe.yield}人分）</h3>
+            <Table hover size="sm">
+              <tbody>
+                {recipe.ingredients.map((ing, i) => {
+                  return <IngredientRow key={i} ing={ing} />;
+                })}
+              </tbody>
+            </Table>
+          </Col>
+          <Col md="6" lg="7">
+            <h3>手順</h3>
+            <ol className="instructions">
+              {recipe.instructions.map((s, i) => {
+                return <li key={i}>{s}</li>
               })}
-            </tbody>
-          </Table>
-        </Col>
-        <Col md="6" lg="7">
-          <h3>手順</h3>
-          <ol className="instructions">
-            {recipe.instructions.map((s, i) => {
-              return <li key={i}>{s}</li>
-            })}
-          </ol>
-        </Col>
-      </Row>
-    </div>
+            </ol>
+          </Col>
+        </Row>
+      </Col>
+    </Row>
   );
 }
 
